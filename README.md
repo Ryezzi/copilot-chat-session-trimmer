@@ -26,18 +26,46 @@ VS Code Copilot Chat session files are stored as JSON patch streams. This script
 - Node.js 18+
 - VS Code closed while running the script is strongly recommended
 
+## Recovering a specific corrupt session
+
+If a session won't open in VS Code, this is the fastest way to identify and repair it:
+
+1. Open the VS Code Developer Tools: **Help → Toggle Developer Tools** (or `Ctrl+Shift+I`)
+2. Click the **Console** tab
+3. Click the broken session in the chat panel — it will fail to open and log an error like:
+   ```
+   Cannot read properties of undefined (reading 'response')
+   ...chatSessions/3fa2b1c4-8e91-4d70-a3f2-9b0c7e1d5f28.jsonl
+   ```
+4. Copy the UUID from that path (e.g. `3fa2b1c4-8e91-4d70-a3f2-9b0c7e1d5f28`)
+5. Run the script targeting just that session:
+
+```bash
+node trim-chat-sessions.mjs --target 3fa2b1c4-8e91-4d70-a3f2-9b0c7e1d5f28 --apply
+```
+
+The `--target` flag finds and repairs all copies of that session UUID across every workspace, ignores the `--min-mb` threshold, and leaves everything else untouched.
+
+---
+
 ## Usage
 
-Dry run:
+Dry run (safe, no files written):
 
 ```bash
 node trim-chat-sessions.mjs --dry-run
 ```
 
-Apply changes with default settings:
+Apply changes with default settings (all sessions over 50 MB, keep latest 10):
 
 ```bash
 node trim-chat-sessions.mjs --apply
+```
+
+Repair one specific corrupt session by UUID:
+
+```bash
+node trim-chat-sessions.mjs --target <uuid> --apply
 ```
 
 Keep the latest 20 requests and process files over 25 MB:

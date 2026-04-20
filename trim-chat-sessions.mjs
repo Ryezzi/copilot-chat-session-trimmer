@@ -13,6 +13,7 @@ function parseArgs(argv) {
     dryRun: true,
     deleteCorrupt: false,
     backup: false,
+    target: null,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -33,6 +34,8 @@ function parseArgs(argv) {
       options.deleteCorrupt = true;
     } else if (arg === '--backup') {
       options.backup = true;
+    } else if (arg === '--target') {
+      options.target = argv[++index];
     } else if (arg === '--help' || arg === '-h') {
       options.help = true;
     } else {
@@ -59,6 +62,7 @@ Options:
   --root <path>         Workspace storage root to scan
   --min-mb <number>     Minimum file size in MB to process (default: 50)
   --keep <number>       Number of latest requests to keep (default: 10)
+  --target <uuid>       Repair a single session by its UUID (ignores --min-mb)
   --apply               Rewrite matching files in place
   --dry-run             Show what would change without writing files
   --delete-corrupt      Delete unreadable session files when used with --apply
@@ -67,6 +71,7 @@ Options:
 
 Notes:
   Dry-run is the default mode.
+  Use --target to repair one specific corrupt session by UUID.
   This script only processes *.jsonl files inside chatSessions folders under workspaceStorage.
 `);
 }
@@ -219,6 +224,26 @@ function findCandidateFiles(rootPath, minBytes) {
   return candidates.sort((left, right) => right.sizeBytes - left.sizeBytes);
 }
 
+function findTargetFiles(rootPath, uuid) {
+  const candidates = [];
+  const normalizedUuid = uuid.toLowerCase().replace(/\.jsonl$/, '');
+  for (const workspaceDir of fs.readdirSync(rootPath)) {
+    const chatSessionsDir = path.join(rootPath, workspaceDir, 'chatSessions');
+    if (!fs.existsSync(chatSessionsDir)) {
+      continue;
+    }
+    for (const fileName of fs.readdirSync(chatSessionsDir)) {
+      if (fileName.toLowerCase().replace(/\.jsonl$/, '') === normalizedUuid) {
+        const filePath = path.join(chatSessionsDir, fileName);
+        if (isAllowedSessionPath(filePath, rootPath)) {
+          candidates.push({ filePath, sizeBytes: fs.statSync(filePath).size });
+        }
+      }
+    }
+  }
+  return candidates;
+}
+
 function mb(sizeBytes) {
   return Math.round((sizeBytes / 1024 / 1024) * 10) / 10;
 }
@@ -283,15 +308,27 @@ function main() {
     throw new Error(`Root path does not exist: ${options.root}`);
   }
 
-  const files = findCandidateFiles(options.root, options.minMb * 1024 * 1024);
+  const files = options.target
+    ? findTargetFiles(options.root, options.target)
+    : findCandidateFiles(options.root, options.minMb * 1024 * 1024);
+
   if (files.length === 0) {
-    console.log('No matching session files found.');
+    if (options.target) {
+      console.log(`No session file found matching UUID: ${options.target}`);
+    } else {
+      console.log('No matching session files found.');
+    }
     return;
   }
 
-  console.log(`${options.apply ? 'Applying' : 'Dry run for'} ${files.length} oversized session file(s).`);
+  if (options.target) {
+    console.log(`${options.apply ? 'Repairing' : 'Dry run for'} target session: ${options.target}`);
+  } else {
+    console.log(`${options.apply ? 'Applying' : 'Dry run for'} ${files.length} oversized session file(s).`);
+  }
   console.log(`Root: ${options.root}`);
-  console.log(`Threshold: ${options.minMb} MB, keep latest: ${options.keep}`);
+  if (!options.target) console.log(`Threshold: ${options.minMb} MB, keep latest: ${options.keep}`);
+  console.log(`Keep latest: ${options.keep}`);
   console.log('');
 
   let trimmedCount = 0;
