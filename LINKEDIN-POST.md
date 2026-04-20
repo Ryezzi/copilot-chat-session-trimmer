@@ -12,6 +12,6 @@ I turned that cleanup into a small Node.js utility:
 It helped recover about 3.1 GB of chat session storage on one machine during cleanup.
 
 Repo:
-<paste-your-public-repo-url-here>
+https://github.com/Ryezzi/copilot-chat-session-trimmer
 
 If you have long-running Copilot sessions or a bloated `workspaceStorage` folder, this may save you a debugging detour.

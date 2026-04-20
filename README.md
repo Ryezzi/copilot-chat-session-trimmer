@@ -71,25 +71,14 @@ Applying 24 oversized session file(s).
 Root: C:\Users\<you>\AppData\Roaming\Code\User\workspaceStorage
 Threshold: 50 MB, keep latest: 10
 
-d88a.../chatSessions/91269050-....jsonl: 369 MB -> 0.5 MB (341 -> 10 requests)
-17eb.../chatSessions/8ca3b72d-....jsonl: 326 MB -> 4.9 MB (173 -> 10 requests)
+abc1.../chatSessions/11111111-....jsonl: 369 MB -> 0.5 MB (341 -> 10 requests)
+xyz9.../chatSessions/22222222-....jsonl: 326 MB -> 4.9 MB (173 -> 10 requests)
 
 Trimmed: 21
 Deleted corrupt: 3
 Skipped corrupt: 0
 Freed: 3158 MB
 ```
-
-## Publish hygiene
-
-This repo intentionally excludes:
-
-- Personal workspace names
-- Real session IDs from your machine in documentation examples
-- Any copied chat content
-- Any access tokens, credentials, or internal paths beyond the standard VS Code storage location pattern
-
-Before publishing, review the README and script once more if you plan to change defaults or add your own examples.
 
 ## License
 
