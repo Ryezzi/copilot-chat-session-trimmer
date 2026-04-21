@@ -4,6 +4,8 @@ Small Node.js utility for trimming oversized VS Code Copilot Chat session files 
 
 It is designed for cases where chat session files inside `workspaceStorage/<id>/chatSessions/*.jsonl` have grown large enough to hurt editor performance or fail to open reliably.
 
+Rather than blindly cutting to a fixed request count, it keeps as many requests as possible while trimming the file down to a target size (default 20 MB). This preserves maximum context while eliminating the bloat.
+
 ## Safety goals
 
 - No third-party dependencies
@@ -56,10 +58,16 @@ Dry run (safe, no files written):
 node trim-chat-sessions.mjs --dry-run
 ```
 
-Apply changes with default settings (all sessions over 50 MB, keep latest 10):
+Apply changes with default settings (files over 50 MB, keeps as many requests as possible while targeting 20 MB per file):
 
 ```bash
 node trim-chat-sessions.mjs --apply
+```
+
+Be more aggressive — trim to 10 MB max:
+
+```bash
+node trim-chat-sessions.mjs --apply --max-mb 10
 ```
 
 Repair one specific corrupt session by UUID:

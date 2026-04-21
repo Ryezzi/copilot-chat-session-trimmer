@@ -8,7 +8,8 @@ function parseArgs(argv) {
   const options = {
     root: path.join(os.homedir(), 'AppData', 'Roaming', 'Code', 'User', 'workspaceStorage'),
     minMb: 50,
-    keep: 10,
+    keep: 30,
+    maxMb: 20,
     apply: false,
     dryRun: true,
     deleteCorrupt: false,
@@ -24,6 +25,8 @@ function parseArgs(argv) {
       options.minMb = Number(argv[++index]);
     } else if (arg === '--keep') {
       options.keep = Number(argv[++index]);
+    } else if (arg === '--max-mb') {
+      options.maxMb = Number(argv[++index]);
     } else if (arg === '--apply') {
       options.apply = true;
       options.dryRun = false;
@@ -51,6 +54,10 @@ function parseArgs(argv) {
     throw new Error('--keep must be an integer greater than 0');
   }
 
+  if (!Number.isFinite(options.maxMb) || options.maxMb <= 0) {
+    throw new Error('--max-mb must be a positive number');
+  }
+
   return options;
 }
 
@@ -61,7 +68,8 @@ function printHelp() {
 Options:
   --root <path>         Workspace storage root to scan
   --min-mb <number>     Minimum file size in MB to process (default: 50)
-  --keep <number>       Number of latest requests to keep (default: 10)
+  --max-mb <number>     Target max file size in MB after trimming (default: 20)
+  --keep <number>       Max number of latest requests to keep (default: 30)
   --target <uuid>       Repair a single session by its UUID (ignores --min-mb)
   --apply               Rewrite matching files in place
   --dry-run             Show what would change without writing files
@@ -71,6 +79,8 @@ Options:
 
 Notes:
   Dry-run is the default mode.
+  The script keeps as many requests as possible while staying under --max-mb.
+  Use --keep to set a hard cap on request count regardless of file size.
   Use --target to repair one specific corrupt session by UUID.
   This script only processes *.jsonl files inside chatSessions folders under workspaceStorage.
 `);
@@ -254,13 +264,22 @@ function trimSessionFile(filePath, options) {
   const entries = splitJsonObjects(raw);
   const state = replaySessionEntries(entries);
   const totalRequests = state.requests.length;
-  const keepCount = Math.min(options.keep, totalRequests);
-  const trimmedState = {
-    ...state,
-    requests: state.requests.slice(-keepCount),
-  };
-  const nextContent = `${JSON.stringify({ kind: 0, v: trimmedState })}\n`;
-  const nextBytes = Buffer.byteLength(nextContent, 'utf8');
+  const maxBytes = options.maxMb * 1024 * 1024;
+
+  // Start with the max allowed by --keep, then reduce until we're under --max-mb
+  let keepCount = Math.min(options.keep, totalRequests);
+  let trimmedState;
+  let nextContent;
+  let nextBytes;
+
+  do {
+    trimmedState = { ...state, requests: state.requests.slice(-keepCount) };
+    nextContent = `${JSON.stringify({ kind: 0, v: trimmedState })}\n`;
+    nextBytes = Buffer.byteLength(nextContent, 'utf8');
+    if (nextBytes <= maxBytes || keepCount <= 1) break;
+    // Binary-search style: drop ~20% each iteration to converge quickly
+    keepCount = Math.max(1, Math.floor(keepCount * 0.8));
+  } while (true);
 
   if (options.apply) {
     if (options.backup) {
